@@ -1,5 +1,4 @@
 const { EmbedBuilder } = require("discord.js");
-const { config } = require("./config");
 const { getOrCreateUserStats } = require("./services/userStats");
 const { getOrCreateGuildConfig } = require("./services/guildConfig");
 const { msToHours } = require("./util/time");
@@ -9,6 +8,12 @@ async function sendRankNotification({ guild, channelId, member, totalHours, isRa
   if (!channelId) return;
   const channel = guild.channels.cache.get(channelId);
   if (!channel?.isTextBased?.()) return;
+
+  if (!isRankUp) {
+    const dmText =
+      "# TU A ETE DERANK CAR TU EST PAS ASSEZ ACTIF 🏆\nTu peut toujours te rattraper en venant en vocal\ndiscord.gg/sayuri";
+    await member.send({ content: dmText }).catch(() => {});
+  }
 
   const embed = new EmbedBuilder()
     .setAuthor({ name: member.user.username, iconURL: member.user.displayAvatarURL() })

@@ -2,6 +2,8 @@ const { EmbedBuilder } = require("discord.js");
 const { isAdmin } = require("../util/permissions");
 const { getRankRoleIds } = require("../util/ranks");
 const { getOrCreateGuildConfig } = require("../services/guildConfig");
+const { getOrCreateUserStats } = require("../services/userStats");
+const { msToHours } = require("../util/time");
 
 function parseUserId(message) {
   const u = message.mentions.users.first();
@@ -50,15 +52,24 @@ async function handleDerankCommand(message) {
   const configuredChannel = cfg.derankChannelId ? message.guild.channels.cache.get(cfg.derankChannelId) : null;
   const channel = configuredChannel?.isTextBased?.() ? configuredChannel : message.channel;
 
-  const description =
+  // MP (message exact demandé)
+  const dmText =
     "# TU A ETE DERANK CAR TU EST PAS ASSEZ ACTIF 🏆\nTu peut toujours te rattraper en venant en vocal\ndiscord.gg/sayuri";
+  await member.send({ content: dmText }).catch(() => {});
+
+  // Message "normal" dans le salon (même style que les notifications rankSystem)
+  const stats = await getOrCreateUserStats(message.guild.id, member.id);
+  const totalHours = msToHours(stats.totalVoiceMs);
 
   const embed = new EmbedBuilder()
-    .setColor(0xff6b00)
-    .setDescription(description)
+    .setAuthor({ name: member.user.username, iconURL: member.user.displayAvatarURL() })
+    .setTitle("⬇️ DERANK !")
+    .setColor(0xff0000)
+    .setDescription(`**${member}** a été derank !`)
+    .addFields({ name: "⏱ Temps vocal total", value: `**${totalHours.toFixed(2)}h**`, inline: true })
     .setTimestamp();
 
-  await channel.send({ content: `${member}`, embeds: [embed] }).catch(() => {});
+  await channel.send({ embeds: [embed] }).catch(() => {});
 }
 
 module.exports = { handleDerankCommand };
