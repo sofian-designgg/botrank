@@ -1,10 +1,34 @@
-const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const { config } = require("./config");
 const { getOrCreateUserStats } = require("./services/userStats");
 const { getOrCreateGuildConfig } = require("./services/guildConfig");
 const { msToHours } = require("./util/time");
 const { getRankRoleIds, getAchievedRank } = require("./util/ranks");
-const { renderRankCard } = require("./image/renderRankCard");
+
+async function sendRankNotification({ guild, channelId, member, totalHours, isRankUp, nextRankHours = null }) {
+  if (!channelId) return;
+  const channel = guild.channels.cache.get(channelId);
+  if (!channel?.isTextBased?.()) return;
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: member.user.username, iconURL: member.user.displayAvatarURL() })
+    .setDescription(`**${member}** ${isRankUp ? "a gagné un rank !" : "a été derank !"}`)
+    .addFields(
+      { name: "⏱ Temps vocal total", value: `**${totalHours.toFixed(2)}h**`, inline: true },
+    )
+    .setTimestamp();
+
+  if (isRankUp) {
+    embed.setTitle("⬆️ RANK UP !").setColor(0x00ff00);
+    if (nextRankHours) {
+      embed.addFields({ name: "🎯 Prochain rank", value: `${nextRankHours}h`, inline: true });
+    }
+  } else {
+    embed.setTitle("⬇️ DERANK !").setColor(0xff0000);
+  }
+
+  await channel.send({ embeds: [embed] }).catch(() => {});
+}
 
 async function applyRankRoles(member, achievedRoleId) {
   const rankRoleIds = getRankRoleIds();
@@ -21,24 +45,6 @@ async function removeAllRankRoles(member) {
   if (toRemove.length) await member.roles.remove(toRemove).catch(() => {});
 }
 
-async function sendRankImage({ guild, channelId, member, levelText, subtitle }) {
-  if (!channelId) return;
-  const channel = guild.channels.cache.get(channelId);
-  if (!channel?.isTextBased?.()) return;
-
-  const png = await renderRankCard({
-    templatePath: config.assets.rankupTemplatePath,
-    avatarUrl: member.user.displayAvatarURL({ extension: "png", size: 256 }),
-    username: member.user.username,
-    levelText,
-    subtitle,
-  });
-
-  const file = new AttachmentBuilder(png, { name: "rank.png" });
-  const embed = new EmbedBuilder().setImage("attachment://rank.png");
-  await channel.send({ content: `${member}`, embeds: [embed], files: [file] }).catch(() => {});
-}
-
 async function checkAndApplyRank(member, { notify = true } = {}) {
   const stats = await getOrCreateUserStats(member.guild.id, member.id);
   const cfg = await getOrCreateGuildConfig(member.guild.id);
@@ -46,7 +52,6 @@ async function checkAndApplyRank(member, { notify = true } = {}) {
   const totalHours = msToHours(stats.totalVoiceMs);
   const achieved = getAchievedRank(totalHours);
 
-  // si déjà deranké manuellement (plus de roles), on rerank automatiquement dès qu'il dépasse un palier
   const beforeHad = getRankRoleIds().some((id) => member.roles.cache.has(id));
 
   await applyRankRoles(member, achieved?.roleId ?? null);
@@ -55,21 +60,22 @@ async function checkAndApplyRank(member, { notify = true } = {}) {
 
   if (notify && achieved && (!beforeHad || !member.roles.cache.has(achieved.roleId))) {
     // notif rankup
-    await sendRankImage({
+    await sendRankNotification({
       guild: member.guild,
       channelId: cfg.rankChannelId,
       member,
-      levelText: `LV ${achieved.hours}`,
-      subtitle: "RANK UP",
+      totalHours,
+      isRankUp: true,
+      nextRankHours: getAchievedRank(totalHours)?.hours,
     });
   } else if (notify && !achieved && beforeHad && !afterHad) {
     // plus de rank
-    await sendRankImage({
+    await sendRankNotification({
       guild: member.guild,
       channelId: cfg.derankChannelId,
       member,
-      levelText: "0",
-      subtitle: "DERANK",
+      totalHours,
+      isRankUp: false,
     });
   }
 }
@@ -77,12 +83,12 @@ async function checkAndApplyRank(member, { notify = true } = {}) {
 async function derankIfNeeded(member, reason = "DERANK") {
   const cfg = await getOrCreateGuildConfig(member.guild.id);
   await removeAllRankRoles(member);
-  await sendRankImage({
+  await sendRankNotification({
     guild: member.guild,
     channelId: cfg.derankChannelId,
     member,
-    levelText: "0",
-    subtitle: reason,
+    totalHours: 0,
+    isRankUp: false,
   });
 }
 

@@ -12,9 +12,6 @@ const config = {
   discordToken: mustGetEnv("DISCORD_TOKEN"),
   mongoUrl: mustGetEnv("MONGO_URL"),
   commandPrefix: "!",
-  assets: {
-    rankupTemplatePath: require("path").join(__dirname, "..", "Generated_image.png"),
-  },
   ranks: [
     { hours: 10, roleId: "1477766282299572254" },
     { hours: 30, roleId: "1477763567167082506" },
