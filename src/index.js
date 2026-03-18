@@ -9,6 +9,7 @@ const { handleRankCommand } = require("./commands/rank");
 const { handleBoostRankCommand, handleBoostButton } = require("./commands/boostrank");
 const { handleSetProtect } = require("./commands/setprotect");
 const { handleSetChannelRank, handleSetChannelDerank } = require("./commands/setchannel");
+const { handleDerankCommand } = require("./commands/derank");
 
 async function main() {
   await connectMongo(config.mongoUrl);
@@ -52,6 +53,7 @@ async function main() {
       if (cmd === "setprotect") return await handleSetProtect(message);
       if (cmd === "setchannelrank") return await handleSetChannelRank(message);
       if (cmd === "setchannelderank") return await handleSetChannelDerank(message);
+        if (cmd === "derank") return await handleDerankCommand(message);
     } catch (e) {
       await message.reply("Erreur interne. Vérifie les logs du bot.");
     }

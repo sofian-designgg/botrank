@@ -12,7 +12,6 @@ async function handleBoostRankCommand(message) {
   if (stats.boostUsed) {
     await message.reply({
       content: "Tu as déjà utilisé ton boost ou ton boost est déjà actif !",
-      ephemeral: true,
     });
     return;
   }
@@ -21,7 +20,6 @@ async function handleBoostRankCommand(message) {
   if (!joinedAt || dayjs().diff(joinedAt, "day") > config.boost.maxDaysSinceJoin) {
     await message.reply({
       content: `Tu n'es plus éligible au boost (limite : ${config.boost.maxDaysSinceJoin} jours après avoir rejoint le serveur).`,
-      ephemeral: true,
     });
     return;
   }

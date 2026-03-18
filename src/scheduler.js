@@ -2,7 +2,6 @@ const { config } = require("./config");
 const { GuildConfig } = require("./models/GuildConfig");
 const { UserStats } = require("./models/UserStats");
 const { dateKeyUtc, nextUtcMidnightMsFromNow, msToHours } = require("./util/time");
-const { derankIfNeeded } = require("./rankSystem");
 
 async function runDailyDerank(client, splitSessionsAtMidnight) {
   // split active voice sessions so daily totals are correct
@@ -11,8 +10,6 @@ async function runDailyDerank(client, splitSessionsAtMidnight) {
   }
 
   const todayKey = dateKeyUtc();
-  const minMs = config.daily.minHoursPerDayToKeepRank * 60 * 60 * 1000;
-  const exemptHours = config.daily.exemptTotalHours;
 
   const guildConfigs = await GuildConfig.find({});
 
@@ -36,19 +33,10 @@ async function runDailyDerank(client, splitSessionsAtMidnight) {
       const stats = statsByUser.get(member.id);
       if (!stats) continue;
 
-      const isProtected = cfg.protectedUserIds.includes(member.id);
       const totalHours = msToHours(stats.totalVoiceMs);
-      const exempt = totalHours >= exemptHours;
-
-      // Si sa dailyDateKey n'est pas aujourd'hui, on considère qu'il n'a rien fait "hier"
-      // (car on reset le dailyVoiceMs au changement de date).
-      // À minuit, ensureDailyKey sera déjà passée dans splitSessionsAtMidnight.
-      const didEnoughToday = stats.dailyDateKey === todayKey && stats.dailyVoiceMs >= minMs;
-
-      // Règle demandée: s'il ne fait pas au moins 1h vocal chaque jour -> derank à 00h
-      if (!isProtected && !exempt && !didEnoughToday) {
-        await derankIfNeeded(member, "DERANK");
-      }
+      // En mode "derank manuel", on ne retire plus de rôles automatiquement.
+      // On ne garde ici que le reset quotidien pour `!rank` (temps vocal du jour).
+      void totalHours;
 
       // reset daily pour nouveau jour (on force, même si déjà ok)
       stats.dailyDateKey = todayKey;
