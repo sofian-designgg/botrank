@@ -45,7 +45,7 @@ async function handleRankCommand(message) {
   const file = new AttachmentBuilder(png, { name: "rank.png" });
   const embed = new EmbedBuilder().setImage("attachment://rank.png");
 
-  await message.reply({ content: `${message.author}\n${lines.join("\n")}`, embeds: [embed], files: [file] });
+  await message.reply({ content: `Voici ta carte de rank, ${message.author} :`, embeds: [embed], files: [file] });
 }
 
 module.exports = { handleRankCommand };

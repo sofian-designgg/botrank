@@ -36,6 +36,12 @@ function drawFittedText(ctx, text, x, y, maxWidth, baseFontPx, fontFamily, color
   ctx.fillText(text, x, y);
 }
 
+function pickSafeFontFamily() {
+  // "serif" peut être absent sur certains environnements Railway minimalistes,
+  // ce qui peut parfois aboutir à un rendu vide. On force une liste fallback.
+  return `"DejaVu Sans","Arial","Liberation Sans",sans-serif`;
+}
+
 async function renderRankCard({ templatePath, avatarUrl, username, levelText, subtitle }) {
   const tpl = await loadImage(path.resolve(templatePath));
   const w = tpl.width;
@@ -59,7 +65,7 @@ async function renderRankCard({ templatePath, avatarUrl, username, levelText, su
 
   const gold1 = "#F7E7B2";
   const gold2 = "#FFD36A";
-  const fontFamily = "serif";
+  const fontFamily = pickSafeFontFamily();
 
   drawFittedText(
     ctx,
@@ -72,7 +78,7 @@ async function renderRankCard({ templatePath, avatarUrl, username, levelText, su
     gold1
   );
 
-  drawFittedText(ctx, String(levelText), layout.level.cx, layout.level.cy, w * 0.22, h * 0.22, fontFamily, gold2);
+  drawFittedText(ctx, String(levelText), layout.level.cx, layout.level.cy, w * 0.28, h * 0.22, fontFamily, gold2);
 
   if (subtitle) {
     drawFittedText(
