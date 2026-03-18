@@ -24,45 +24,44 @@ async function main() {
     partials: [Partials.Channel, Partials.Message, Partials.GuildMember, Partials.User],
   });
 
-  const { reconcileOnReady, splitSessionsAtMidnight } = wireVoiceTracker(client, async ({ guildId, userId }) => {
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return;
-    const member = await guild.members.fetch(userId).catch(() => null);
-    if (!member) return;
-    await checkAndApplyRank(member, { notify: true });
-  });
+    const { reconcileOnReady, splitSessionsAtMidnight } = wireVoiceTracker(client, async ({ guildId, userId }) => {
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) return;
+      const member = await guild.members.fetch(userId).catch(() => null);
+      if (!member) return;
+      await checkAndApplyRank(member, { notify: true });
+    });
 
-  client.on("ready", async () => {
-    await reconcileOnReady(client);
-    startScheduler(client, splitSessionsAtMidnight);
-    // eslint-disable-next-line no-console
-    console.log(`Logged in as ${client.user.tag}`);
-  });
+    client.on("ready", async () => {
+      await reconcileOnReady(client);
+      startScheduler(client, splitSessionsAtMidnight);
+      // eslint-disable-next-line no-console
+      console.log(`Logged in as ${client.user.tag}`);
+    });
 
-  client.on("messageCreate", async (message) => {
-    if (!message.guild) return;
-    if (message.author.bot) return;
-    if (!message.content.startsWith(config.commandPrefix)) return;
+    client.on("messageCreate", async (message) => {
+      if (!message.guild) return;
+      if (message.author.bot) return;
+      if (!message.content.startsWith(config.commandPrefix)) return;
 
-    const cmd = message.content.slice(config.commandPrefix.length).trim().split(/\s+/)[0]?.toLowerCase();
+      const cmd = message.content.slice(config.commandPrefix.length).trim().split(/\s+/)[0]?.toLowerCase();
 
-    try {
-      if (cmd === "rank") return await handleRankCommand(message);
-      if (cmd === "boostrank") return await handleBoostRankCommand(message);
-      if (cmd === "setprotect") return await handleSetProtect(message);
-      if (cmd === "setchannelrank") return await handleSetChannelRank(message);
-      if (cmd === "setchannelderank") return await handleSetChannelDerank(message);
-    } catch (e) {
-      await message.reply("Erreur interne. Vérifie les logs du bot.");
-    }
-  });
+      try {
+        if (cmd === "rank") return await handleRankCommand(message);
+        if (cmd === "boostrank") return await handleBoostRankCommand(message);
+        if (cmd === "setprotect") return await handleSetProtect(message);
+        if (cmd === "setchannelrank") return await handleSetChannelRank(message);
+        if (cmd === "setchannelderank") return await handleSetChannelDerank(message);
+      } catch (e) {
+        await message.reply("Erreur interne. Vérifie les logs du bot.");
+      }
+    });
 
-  await client.login(config.discordToken);
-}
+    client.on("interactionCreate", async (interaction) => {
+      if (!interaction.isButton()) return;
 
-main().catch((e) => {
-  // eslint-disable-next-line no-console
-  console.error(e);
-  process.exit(1);
-});
+      if (interaction.customId === "activate_boost") {
+        await handleBoostButton(interaction);
+      }
+    });
 

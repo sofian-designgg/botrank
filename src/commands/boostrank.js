@@ -1,36 +1,78 @@
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const { config } = require("../config");
 const { getOrCreateUserStats } = require("../services/userStats");
+const dayjs = require("dayjs");
 
 async function handleBoostRankCommand(message) {
   const member = message.member;
   if (!member) return;
 
-  const joinedAt = member.joinedAt ? new Date(member.joinedAt) : null;
-  if (!joinedAt) {
-    await message.reply("Je ne peux pas vérifier ta date d'arrivée sur le serveur.");
+  const stats = await getOrCreateUserStats(member.guild.id, member.id);
+
+  if (stats.boostUsed) {
+    await message.reply({
+      content: "Tu as déjà utilisé ton boost ou ton boost est déjà actif !",
+      ephemeral: true,
+    });
     return;
   }
 
-  const msSinceJoin = Date.now() - joinedAt.getTime();
-  const maxMs = config.boost.maxDaysSinceJoin * 24 * 60 * 60 * 1000;
-
-  if (msSinceJoin > maxMs) {
-    await message.reply(`Tu n'es plus éligible au boost (limite: ${config.boost.maxDaysSinceJoin} jours).`);
+  const joinedAt = member.joinedAt ? dayjs(member.joinedAt) : null;
+  if (!joinedAt || dayjs().diff(joinedAt, "day") > config.boost.maxDaysSinceJoin) {
+    await message.reply({
+      content: `Tu n'es plus éligible au boost (limite : ${config.boost.maxDaysSinceJoin} jours après avoir rejoint le serveur).`,
+      ephemeral: true,
+    });
     return;
   }
 
-  const stats = await getOrCreateUserStats(message.guild.id, message.author.id);
+  const embed = new EmbedBuilder()
+    .setColor(0x00b0f0) // Couleur bleue pour le boost
+    .setTitle("⚡ Boost de Rank disponible !")
+    .setDescription(
+      `Clique sur le bouton ci-dessous pour activer ton boost de rank. Ton temps vocal comptera en **x${config.boost.multiplier}** pendant **${config.boost.durationHours} heures**.`
+    )
+    .setFooter({ text: `Utilisable une seule fois | Expire ${config.boost.maxDaysSinceJoin} jours après avoir rejoint.` })
+    .setTimestamp();
 
-  if (stats.boostUsed >= config.boost.uses) {
-    await message.reply("Tu as déjà utilisé ton boost.");
-    return;
-  }
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("activate_boost")
+      .setLabel("Activer mon Boost !")
+      .setStyle(ButtonStyle.Primary)
+      .setEmoji("🚀")
+  );
 
-  stats.boostUsed = config.boost.uses;
-  await stats.save();
-
-  await message.reply(`Boost activé: ton temps vocal compte maintenant en **x${config.boost.multiplier}**.`);
+  await message.reply({ embeds: [embed], components: [row] });
 }
 
-module.exports = { handleBoostRankCommand };
+async function handleBoostButton(interaction) {
+  const member = interaction.member;
+  const stats = await getOrCreateUserStats(member.guild.id, member.id);
+
+  if (stats.boostUsed) {
+    await interaction.reply({
+      content: "Tu as déjà activé ton boost ou ton boost est déjà actif !",
+      ephemeral: true,
+    });
+    return;
+  }
+
+  stats.boostUsed = true;
+  stats.boostExpiresAt = dayjs().add(config.boost.durationHours, "hour").toDate();
+  await stats.save();
+
+  // Démarrer une session boostée si le membre est déjà en vocal
+  const vs = member.voice;
+  if (vs?.channelId) {
+    await require("../voiceTracker").startSession(member.guild.id, member.id, vs.channelId, config.boost.multiplier);
+  }
+
+  await interaction.reply({
+    content: `🚀 Ton boost de rank en **x${config.boost.multiplier}** est activé pour **${config.boost.durationHours} heures** !`, 
+    ephemeral: true,
+  });
+}
+
+module.exports = { handleBoostRankCommand, handleBoostButton };
 

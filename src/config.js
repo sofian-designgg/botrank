@@ -25,7 +25,7 @@ const config = {
   boost: {
     multiplier: 1.5,
     maxDaysSinceJoin: 5,
-    uses: 1,
+    durationHours: 24,
   },
 };
 

@@ -12,7 +12,8 @@ const UserStatsSchema = new mongoose.Schema(
     dailyDateKey: { type: String, default: null }, // ex: "2026-03-18" (UTC)
 
     // Boost vocal nouveaux membres
-    boostUsed: { type: Number, default: 0 },
+    boostUsed: { type: Boolean, default: false },
+    boostExpiresAt: { type: Date, default: null },
 
     // Session vocal active (si présent)
     voiceSession: {

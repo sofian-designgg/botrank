@@ -1,6 +1,7 @@
 const { config } = require("./config");
 const { getOrCreateUserStats, ensureDailyKey } = require("./services/userStats");
 const { dateKeyUtc } = require("./util/time");
+const dayjs = require("dayjs");
 
 function isRealVoiceJoin(oldState, newState) {
   return !oldState.channelId && newState.channelId;
@@ -16,9 +17,13 @@ async function startSession(guildId, userId, channelId, multiplier) {
   const stats = await getOrCreateUserStats(guildId, userId);
   await ensureDailyKey(stats, dateKeyUtc());
 
+  // Check if boost has expired
+  const isBoostActive = stats.boostUsed && stats.boostExpiresAt && dayjs(stats.boostExpiresAt).isAfter(dayjs());
+  const effectiveMultiplier = isBoostActive ? config.boost.multiplier : 1;
+
   stats.voiceSession = {
     joinedAt: new Date(),
-    multiplier,
+    multiplier: effectiveMultiplier,
     channelId,
   };
   await stats.save();
@@ -39,6 +44,13 @@ async function endSession(guildId, userId) {
   stats.totalVoiceMs += gained;
   stats.dailyVoiceMs += gained;
   stats.voiceSession = { joinedAt: null, multiplier: 1, channelId: null };
+
+  // If boost has expired, reset it
+  if (stats.boostUsed && stats.boostExpiresAt && dayjs(stats.boostExpiresAt).isBefore(dayjs())) {
+    stats.boostUsed = false;
+    stats.boostExpiresAt = null;
+  }
+
   await stats.save();
 
   return { addedMs: gained };
@@ -52,8 +64,6 @@ async function splitSessionsAtMidnight(guildId) {
   });
 
   for (const stats of statsList) {
-    // On crédite le temps écoulé jusqu'à maintenant dans la journée précédente,
-    // puis on repart sur une session qui continue.
     const joinedAt = stats.voiceSession?.joinedAt ? new Date(stats.voiceSession.joinedAt) : null;
     if (!joinedAt) continue;
 
@@ -62,14 +72,11 @@ async function splitSessionsAtMidnight(guildId) {
     const multiplier = stats.voiceSession?.multiplier ?? 1;
     const gained = Math.floor(delta * multiplier);
 
-    // Crédit sur l'ancien dailyVoiceMs (la dateKey va changer dans ensureDailyKey)
     stats.totalVoiceMs += gained;
     stats.dailyVoiceMs += gained;
 
-    // reset daily key
     await ensureDailyKey(stats, keyNow);
 
-    // redémarre session
     stats.voiceSession.joinedAt = now;
     await stats.save();
   }
@@ -85,7 +92,8 @@ async function reconcileOnReady(client) {
           const stats = await getOrCreateUserStats(guildId, member.id);
           const hasSession = !!stats.voiceSession?.joinedAt;
           if (!hasSession) {
-            const multiplier = stats.boostUsed > 0 ? config.boost.multiplier : 1;
+            const isBoostActive = stats.boostUsed && stats.boostExpiresAt && dayjs(stats.boostExpiresAt).isAfter(dayjs());
+            const multiplier = isBoostActive ? config.boost.multiplier : 1;
             await startSession(guildId, member.id, vs.channelId, multiplier);
           }
         }
@@ -102,12 +110,13 @@ function wireVoiceTracker(client, onVoiceTimeAdded) {
     const userId = newState.id ?? oldState.id;
     if (!guildId || !userId) return;
 
-    // ignore bots
     const member = newState.member ?? oldState.member;
     if (member?.user?.bot) return;
 
+    // Get stats to check boost status before starting/ending session
     const stats = await getOrCreateUserStats(guildId, userId);
-    const multiplier = stats.boostUsed > 0 ? config.boost.multiplier : 1;
+    const isBoostActive = stats.boostUsed && stats.boostExpiresAt && dayjs(stats.boostExpiresAt).isAfter(dayjs());
+    const multiplier = isBoostActive ? config.boost.multiplier : 1;
 
     if (isRealVoiceJoin(oldState, newState)) {
       await startSession(guildId, userId, newState.channelId, multiplier);
@@ -131,5 +140,4 @@ function wireVoiceTracker(client, onVoiceTimeAdded) {
   return { reconcileOnReady, splitSessionsAtMidnight };
 }
 
-module.exports = { wireVoiceTracker };
-
+module.exports = { wireVoiceTracker, startSession, endSession };
