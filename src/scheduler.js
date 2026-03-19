@@ -1,54 +1,19 @@
-const { config } = require("./config");
-const { GuildConfig } = require("./models/GuildConfig");
-const { UserStats } = require("./models/UserStats");
-const { dateKeyUtc, nextUtcMidnightMsFromNow, msToHours } = require("./util/time");
+const { nextUtcMidnightMsFromNow } = require("./util/time");
 
-async function runDailyDerank(client, splitSessionsAtMidnight) {
-  // split active voice sessions so daily totals are correct
+/**
+ * À minuit UTC : on split les sessions vocales actives pour créditer correctement
+ * le temps (éviter de perdre du temps pour ceux en vocal à minuit).
+ * On ne réinitialise plus dailyVoiceMs/dailyDateKey — le temps vocal reste cumulé.
+ */
+async function runDailyTick(client, splitSessionsAtMidnight) {
   for (const [guildId] of client.guilds.cache) {
     await splitSessionsAtMidnight(guildId);
-  }
-
-  const todayKey = dateKeyUtc();
-
-  const guildConfigs = await GuildConfig.find({});
-
-  for (const cfg of guildConfigs) {
-    const guild = client.guilds.cache.get(cfg.guildId);
-    if (!guild) continue;
-
-    let members;
-    try {
-      members = await guild.members.fetch();
-    } catch {
-      continue;
-    }
-
-    const statsList = await UserStats.find({ guildId: cfg.guildId });
-    const statsByUser = new Map(statsList.map((s) => [s.userId, s]));
-
-    for (const [, member] of members) {
-      if (member.user.bot) continue;
-
-      const stats = statsByUser.get(member.id);
-      if (!stats) continue;
-
-      const totalHours = msToHours(stats.totalVoiceMs);
-      // En mode "derank manuel", on ne retire plus de rôles automatiquement.
-      // On ne garde ici que le reset quotidien pour `!rank` (temps vocal du jour).
-      void totalHours;
-
-      // reset daily pour nouveau jour (on force, même si déjà ok)
-      stats.dailyDateKey = todayKey;
-      stats.dailyVoiceMs = 0;
-      await stats.save();
-    }
   }
 }
 
 function startScheduler(client, splitSessionsAtMidnight) {
   async function tick() {
-    await runDailyDerank(client, splitSessionsAtMidnight);
+    await runDailyTick(client, splitSessionsAtMidnight);
   }
 
   const delay = nextUtcMidnightMsFromNow(new Date());
@@ -58,5 +23,5 @@ function startScheduler(client, splitSessionsAtMidnight) {
   }, delay);
 }
 
-module.exports = { startScheduler, runDailyDerank };
+module.exports = { startScheduler, runDailyTick };
 
