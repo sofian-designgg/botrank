@@ -36,10 +36,11 @@ async function sendRankNotification({ guild, channelId, member, totalHours, isRa
 }
 
 async function applyRankRoles(member, achievedRoleId) {
+  if (!achievedRoleId) return;
   const rankRoleIds = getRankRoleIds();
   const toRemove = rankRoleIds.filter((id) => member.roles.cache.has(id) && id !== achievedRoleId);
   if (toRemove.length) await member.roles.remove(toRemove).catch(() => {});
-  if (achievedRoleId && !member.roles.cache.has(achievedRoleId)) {
+  if (!member.roles.cache.has(achievedRoleId)) {
     await member.roles.add(achievedRoleId).catch(() => {});
   }
 }
@@ -56,15 +57,11 @@ async function checkAndApplyRank(member, { notify = true } = {}) {
 
   const totalHours = msToHours(stats.totalVoiceMs);
   const achieved = getAchievedRank(totalHours);
-
   const beforeHad = getRankRoleIds().some((id) => member.roles.cache.has(id));
 
   await applyRankRoles(member, achieved?.roleId ?? null);
 
-  const afterHad = getRankRoleIds().some((id) => member.roles.cache.has(id));
-
   if (notify && achieved && (!beforeHad || !member.roles.cache.has(achieved.roleId))) {
-    // notif rankup
     await sendRankNotification({
       guild: member.guild,
       channelId: cfg.rankChannelId,
@@ -72,15 +69,6 @@ async function checkAndApplyRank(member, { notify = true } = {}) {
       totalHours,
       isRankUp: true,
       nextRankHours: getAchievedRank(totalHours)?.hours,
-    });
-  } else if (notify && !achieved && beforeHad && !afterHad) {
-    // plus de rank
-    await sendRankNotification({
-      guild: member.guild,
-      channelId: cfg.derankChannelId,
-      member,
-      totalHours,
-      isRankUp: false,
     });
   }
 }

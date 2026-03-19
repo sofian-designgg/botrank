@@ -1,7 +1,13 @@
-const { createCanvas, loadImage } = require("@napi-rs/canvas");
+const { createCanvas, loadImage, GlobalFonts } = require("@napi-rs/canvas");
 const fs = require("fs");
 const path = require("path");
 const { RANK_CARD } = require("../config/rankCard");
+
+// Enregistrer les polices (Arial n'existe pas sur Linux/Railway)
+const fontBold = path.join(__dirname, "../../node_modules/dejavu-fonts-ttf/ttf/DejaVuSans-Bold.ttf");
+const fontRegular = path.join(__dirname, "../../node_modules/dejavu-fonts-ttf/ttf/DejaVuSans.ttf");
+if (fs.existsSync(fontBold)) GlobalFonts.registerFromPath(fontBold, "RankCardBold");
+if (fs.existsSync(fontRegular)) GlobalFonts.registerFromPath(fontRegular, "RankCard");
 
 /**
  * Génère une carte de niveau en image à partir du template.
@@ -69,16 +75,20 @@ async function generateRankCard(options) {
   }
 
   // --- 2. Pseudo (rouge) ---
-  ctx.font = `bold ${userCfg.fontSize}px ${userCfg.fontFamily}`;
+  ctx.font = `${userCfg.fontSize}px RankCardBold`;
   ctx.fillStyle = "#E74C3C";
   ctx.textBaseline = "middle";
+  ctx.strokeStyle = "#000000";
+  ctx.lineWidth = 3;
 
   const displayName = String(username).slice(0, 20);
+  ctx.strokeText(displayName, userCfg.x, userCfg.y);
   ctx.fillText(displayName, userCfg.x, userCfg.y);
 
   // --- 3. Stats (rouge) ---
-  ctx.font = `${stats.fontSize}px ${stats.fontFamily}`;
+  ctx.font = `${stats.fontSize}px RankCard`;
   ctx.fillStyle = "#E74C3C";
+  ctx.lineWidth = 2;
 
   const lines = [
     achievedRank ? `Rank: ${achievedRank.hours}h` : "Rank: —",
@@ -89,6 +99,7 @@ async function generateRankCard(options) {
 
   let y = stats.y;
   for (const line of lines) {
+    ctx.strokeText(line, stats.x, y);
     ctx.fillText(line, stats.x, y);
     y += stats.lineHeight;
   }

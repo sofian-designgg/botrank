@@ -38,7 +38,7 @@ async function handleRankCommand(message) {
       .addFields(
         { name: "⚡ Boost vocal", value: boostInfo, inline: false },
       )
-      .setFooter({ text: "Reste actif en vocal pour ne pas être derank." })
+      .setFooter({ text: "Le derank se fait uniquement via !derank (admin)." })
       .setTimestamp();
 
     await message.reply({ embeds: [embed], files: [attachment] });
@@ -54,7 +54,7 @@ async function handleRankCommand(message) {
         { name: "📆 Temps vocal aujourd'hui", value: `**${today}h**`, inline: true },
         { name: "⚡ Boost vocal", value: boostInfo, inline: false },
       )
-      .setFooter({ text: "Reste actif en vocal pour ne pas être derank." })
+      .setFooter({ text: "Le derank se fait uniquement via !derank (admin)." })
       .setTimestamp();
 
     await message.reply({ embeds: [embed] });
