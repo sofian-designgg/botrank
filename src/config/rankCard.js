@@ -16,29 +16,27 @@ const RANK_CARD = {
 
   /** Zone avatar (cercle à gauche) */
   avatar: {
-    centerX: 180,
-    centerY: 384,
-    radius: 110,
+    centerX: 257,
+    centerY: 391,
+    radius: 167,
   },
 
-  /** Zone pseudo / username (barre centrale) */
+  /** Zone pseudo / username (barre centrale, texte rouge) */
   username: {
-    x: 420,
-    y: 340,
+    x: 595,
+    y: 380,
     maxWidth: 400,
-    fontSize: 48,
+    fontSize: 44,
     fontFamily: "Arial",
-    color: "#FFFFFF",
   },
 
   /** Zone infos principales (rectangle droit - rank, heures, etc.) */
   stats: {
-    x: 1000,
-    y: 220,
+    x: 1050,
+    y: 300,
     lineHeight: 52,
-    fontSize: 36,
+    fontSize: 34,
     fontFamily: "Arial",
-    color: "#FFFFFF",
   },
 
   /** Zone barre de progression (en bas) */

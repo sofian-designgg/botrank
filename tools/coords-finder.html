@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Find coordinates - Rank Card</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 { margin-bottom: 12px; font-size: 1.2rem; }
+    p { color: #aaa; margin-bottom: 16px; font-size: 14px; }
+    .zone { margin-bottom: 20px; }
+    .zone label { display: block; margin-bottom: 4px; color: #E74C3C; }
+    .zone input { width: 80px; padding: 6px; margin-right: 8px; background: #16213e; border: 1px solid #333; color: #fff; }
+    .drop {
+      border: 2px dashed #444;
+      padding: 40px;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .drop:hover { border-color: #E74C3C; }
+    .drop input { display: none; }
+    #preview {
+      max-width: 100%;
+      cursor: crosshair;
+      border: 1px solid #333;
+      border-radius: 4px;
+    }
+    .info {
+      margin-top: 12px;
+      padding: 12px;
+      background: #16213e;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+    .info strong { color: #E74C3C; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Find coordinates for rank card</h1>
+  <p>Importe ton template, clique sur les zones pour récupérer les coordonnées (x, y).</p>
+
+  <div class="drop" id="drop">
+    <input type="file" id="file" accept="image/*">
+    Glisse une image ici ou clique pour sélectionner
+  </div>
+
+  <img id="preview" style="display:none;" alt="Template">
+
+  <div class="info" id="info" style="display:none;">
+    Clique sur l'image → <strong id="coords">x: 0, y: 0</strong>
+    Puis assigne : 
+    <button onclick="assign('avatar')" style="margin:0 4px;padding:4px 8px;background:#333;border:none;color:#fff;border-radius:4px;cursor:pointer;">Avatar</button>
+    <button onclick="assign('pseudo')" style="margin:0 4px;padding:4px 8px;background:#333;border:none;color:#fff;border-radius:4px;cursor:pointer;">Pseudo</button>
+    <button onclick="assign('stats')" style="margin:0 4px;padding:4px 8px;background:#333;border:none;color:#fff;border-radius:4px;cursor:pointer;">Stats</button>
+    <button onclick="assign('barre')" style="margin:0 4px;padding:4px 8px;background:#333;border:none;color:#fff;border-radius:4px;cursor:pointer;">Barre XP</button>
+    <br><br>
+    <strong>Rayon du cercle avatar :</strong> Clique 1) centre du cercle, puis 2) sur le bord (bord intérieur ou extérieur) →
+    <button onclick="startRadiusMode()" style="margin-left:6px;padding:4px 10px;background:#E74C3C;border:none;color:#fff;border-radius:4px;cursor:pointer;">Mesurer</button>
+    <span id="radiusResult"></span>
+    <br>Dimensions: <strong id="dims">—</strong>
+  </div>
+
+  <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #333;">
+    <h2 style="font-size: 1rem; margin-bottom: 12px;">Récap des zones</h2>
+    <div class="zone">
+      <label>Avatar — centre (x,y) + rayon</label>
+      <input type="number" id="ax" placeholder="x"> <input type="number" id="ay" placeholder="y">
+      <input type="number" id="ar" placeholder="radius" title="Clique 'Mesurer' ci-dessus pour le calculer">
+    </div>
+    <div class="zone">
+      <label>Pseudo (point de départ du texte)</label>
+      <input type="number" id="ux" placeholder="x"> <input type="number" id="uy" placeholder="y">
+    </div>
+    <div class="zone">
+      <label>Stats (première ligne)</label>
+      <input type="number" id="sx" placeholder="x"> <input type="number" id="sy" placeholder="y">
+    </div>
+    <div class="zone">
+      <label>Barre XP (coin haut-gauche)</label>
+      <input type="number" id="bx" placeholder="x"> <input type="number" id="by" placeholder="y">
+      <input type="number" id="bw" placeholder="width"> <input type="number" id="bh" placeholder="height">
+    </div>
+    <div class="zone" style="margin-top:16px;">
+      <label>Test — Pseudo</label>
+      <input type="text" id="testPseudo" placeholder="TestUser" value="TestUser" style="width:180px;">
+    </div>
+    <div class="zone">
+      <label>Test — URL avatar (optionnel)</label>
+      <input type="text" id="testAvatar" placeholder="https://cdn.discordapp.com/..." value="https://cdn.discordapp.com/embed/avatars/0.png" style="width:320px;">
+    </div>
+    <button onclick="generatePreview()" style="margin:8px 8px 0 0; padding:10px 20px; background:#27ae60; border:none; color:#fff; border-radius:6px; cursor:pointer;">🖼 Générer aperçu</button>
+    <button onclick="copyConfig()" style="margin-top:12px; padding:10px 20px; background:#E74C3C; border:none; color:#fff; border-radius:6px; cursor:pointer;">Copier la config</button>
+  </div>
+
+  <div id="previewResult" style="margin-top:24px; display:none; padding-top:16px; border-top:1px solid #333;">
+    <h2 style="font-size:1rem; margin-bottom:12px;">Aperçu généré</h2>
+    <canvas id="resultCanvas" style="max-width:100%; border:1px solid #333; border-radius:4px;"></canvas>
+    <p style="margin-top:8px; color:#aaa; font-size:13px;">
+      <a href="#" id="downloadLink" download="rank-preview.png" style="color:#E74C3C;">Télécharger l'image</a>
+    </p>
+  </div>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const fileInput = document.getElementById('file');
+    const preview = document.getElementById('preview');
+    const info = document.getElementById('info');
+    const coordsEl = document.getElementById('coords');
+    const dimsEl = document.getElementById('dims');
+
+    drop.onclick = () => fileInput.click();
+    drop.ondragover = (e) => { e.preventDefault(); drop.style.borderColor = '#E74C3C'; };
+    drop.ondragleave = () => { drop.style.borderColor = '#444'; };
+    drop.ondrop = (e) => {
+      e.preventDefault();
+      drop.style.borderColor = '#444';
+      if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+    };
+    fileInput.onchange = () => { if (fileInput.files.length) loadFile(fileInput.files[0]); };
+
+    function loadFile(file) {
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.style.display = 'block';
+      info.style.display = 'block';
+      preview.onload = () => {
+        dimsEl.textContent = preview.naturalWidth + ' x ' + preview.naturalHeight;
+      };
+    }
+
+    let lastX = 0, lastY = 0;
+    let radiusStep = 0; // 0=off, 1=attendre centre, 2=attendre bord
+
+    function getCoords(e) {
+      const rect = preview.getBoundingClientRect();
+      const scaleX = preview.naturalWidth / rect.width;
+      const scaleY = preview.naturalHeight / rect.height;
+      return {
+        x: Math.round((e.clientX - rect.left) * scaleX),
+        y: Math.round((e.clientY - rect.top) * scaleY)
+      };
+    }
+
+    function startRadiusMode() {
+      radiusStep = 1;
+      document.getElementById('radiusResult').textContent = ' → Clique 1) le centre du cercle';
+    }
+
+    preview.onclick = (e) => {
+      const { x, y } = getCoords(e);
+      lastX = x; lastY = y;
+
+      if (radiusStep === 1) {
+        document.getElementById('ax').value = x;
+        document.getElementById('ay').value = y;
+        window._radiusCenter = { x, y };
+        radiusStep = 2;
+        document.getElementById('radiusResult').textContent = ' → Clique 2) sur le bord du cercle';
+        return;
+      }
+      if (radiusStep === 2) {
+        const c = window._radiusCenter;
+        const radius = Math.round(Math.sqrt((x - c.x) ** 2 + (y - c.y) ** 2));
+        document.getElementById('ar').value = radius;
+        document.getElementById('radiusResult').innerHTML = ` → <strong>Rayon = ${radius} px</strong>`;
+        radiusStep = 0;
+        return;
+      }
+
+      coordsEl.textContent = `x: ${x}, y: ${y}`;
+    };
+
+    function assign(zone) {
+      if (zone === 'avatar') { document.getElementById('ax').value = lastX; document.getElementById('ay').value = lastY; }
+      if (zone === 'pseudo') { document.getElementById('ux').value = lastX; document.getElementById('uy').value = lastY; }
+      if (zone === 'stats') { document.getElementById('sx').value = lastX; document.getElementById('sy').value = lastY; }
+      if (zone === 'barre') { document.getElementById('bx').value = lastX; document.getElementById('by').value = lastY; }
+    }
+
+    function copyConfig() {
+      const w = preview.naturalWidth || 1376, h = preview.naturalHeight || 768;
+      const ax = document.getElementById('ax').value || 180, ay = document.getElementById('ay').value || 384, ar = document.getElementById('ar').value || 110;
+      const ux = document.getElementById('ux').value || 430, uy = document.getElementById('uy').value || 300;
+      const sx = document.getElementById('sx').value || 1000, sy = document.getElementById('sy').value || 220;
+      const bx = document.getElementById('bx').value || 420, by = document.getElementById('by').value || 480;
+      const bw = document.getElementById('bw').value || 650, bh = document.getElementById('bh').value || 32;
+      const js = `width: ${w},\n  height: ${h},\n\n  avatar: { centerX: ${ax}, centerY: ${ay}, radius: ${ar} },\n  username: { x: ${ux}, y: ${uy} },\n  stats: { x: ${sx}, y: ${sy} },\n  progressBar: { x: ${bx}, y: ${by}, width: ${bw}, height: ${bh} }`;
+      navigator.clipboard.writeText(js).then(() => alert('Config copiée ! Colle-la dans rankCard.js'));
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    async function generatePreview() {
+      if (!preview.src || preview.src.startsWith('data:')) {
+        alert('Charge d\'abord ton template (glisse ou sélectionne une image).');
+        return;
+      }
+      const w = preview.naturalWidth, h = preview.naturalHeight;
+      const ax = +document.getElementById('ax').value || 180;
+      const ay = +document.getElementById('ay').value || 384;
+      const ar = +document.getElementById('ar').value || 110;
+      const ux = +document.getElementById('ux').value || 430;
+      const uy = +document.getElementById('uy').value || 300;
+      const sx = +document.getElementById('sx').value || 1000;
+      const sy = +document.getElementById('sy').value || 220;
+      const bx = +document.getElementById('bx').value || 420;
+      const by = +document.getElementById('by').value || 480;
+      const bw = +document.getElementById('bw').value || 650;
+      const bh = +document.getElementById('bh').value || 32;
+      const pseudo = document.getElementById('testPseudo').value || 'TestUser';
+      const avatarUrl = document.getElementById('testAvatar').value || 'https://cdn.discordapp.com/embed/avatars/0.png';
+
+      const canvas = document.getElementById('resultCanvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      const templateImg = new Image();
+      templateImg.crossOrigin = 'anonymous';
+      templateImg.src = preview.src;
+      await new Promise((res, rej) => {
+        templateImg.onload = res;
+        templateImg.onerror = () => rej(new Error('Template non chargé'));
+      });
+      ctx.drawImage(templateImg, 0, 0, w, h);
+
+      // Avatar
+      try {
+        const avatarImg = new Image();
+        avatarImg.crossOrigin = 'anonymous';
+        avatarImg.src = avatarUrl + (avatarUrl.includes('?') ? '&' : '?') + 'size=256';
+        await new Promise((res, rej) => { avatarImg.onload = res; avatarImg.onerror = rej; });
+        const size = ar * 2;
+        const imgW = avatarImg.width, imgH = avatarImg.height;
+        const scale = Math.max(size / imgW, size / imgH);
+        const cropSize = size / scale;
+        const srcX = (imgW - cropSize) / 2, srcY = (imgH - cropSize) / 2;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(ax, ay, ar, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(avatarImg, srcX, srcY, cropSize, cropSize, ax - ar, ay - ar, size, size);
+        ctx.restore();
+      } catch (e) {
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(ax, ay, ar, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Avatar?', ax, ay);
+      }
+
+      // Pseudo
+      ctx.font = 'bold 48px Arial';
+      ctx.fillStyle = '#E74C3C';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pseudo.slice(0, 20), ux, uy);
+
+      // Stats
+      ctx.font = '34px Arial';
+      ctx.fillStyle = '#E74C3C';
+      const lines = ['Rank: 30h', 'Prochain: 50h', 'Total: 35.2h', "Aujourd'hui: 2.5h"];
+      let ly = sy;
+      for (const line of lines) {
+        ctx.fillText(line, sx, ly);
+        ly += 52;
+      }
+
+      // Barre XP
+      const progress = 0.65;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      roundRect(ctx, bx, by, bw, bh, 16);
+      ctx.fill();
+      ctx.fillStyle = '#E74C3C';
+      if (bw * progress > 0) {
+        roundRect(ctx, bx, by, bw * progress, bh, 16);
+        ctx.fill();
+      }
+
+      document.getElementById('previewResult').style.display = 'block';
+      const link = document.getElementById('downloadLink');
+      canvas.toBlob(blob => {
+        link.href = URL.createObjectURL(blob);
+        link.download = 'rank-preview.png';
+      }, 'image/png');
+    }
+  </script>
+</body>
+</html>

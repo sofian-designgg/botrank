@@ -40,10 +40,18 @@ async function generateRankCard(options) {
   const template = await loadImage(templatePath);
   ctx.drawImage(template, 0, 0, width, height);
 
-  // --- 1. Avatar (cercle) ---
+  // --- 1. Avatar (cercle) - centrage type "cover" ---
   try {
     const avatarImg = await loadImage(avatarUrl + "?size=256");
     const { centerX, centerY, radius } = avatar;
+
+    const size = radius * 2;
+    const imgW = avatarImg.width;
+    const imgH = avatarImg.height;
+    const scale = Math.max(size / imgW, size / imgH);
+    const cropSize = size / scale;
+    const srcX = (imgW - cropSize) / 2;
+    const srcY = (imgH - cropSize) / 2;
 
     ctx.save();
     ctx.beginPath();
@@ -52,27 +60,25 @@ async function generateRankCard(options) {
     ctx.clip();
     ctx.drawImage(
       avatarImg,
-      centerX - radius,
-      centerY - radius,
-      radius * 2,
-      radius * 2
+      srcX, srcY, cropSize, cropSize,
+      centerX - radius, centerY - radius, size, size
     );
     ctx.restore();
   } catch (e) {
     console.warn("[rankCard] Avatar non chargé:", e.message);
   }
 
-  // --- 2. Pseudo ---
-  ctx.font = `${userCfg.fontSize}px ${userCfg.fontFamily}`;
-  ctx.fillStyle = userCfg.color;
+  // --- 2. Pseudo (rouge) ---
+  ctx.font = `bold ${userCfg.fontSize}px ${userCfg.fontFamily}`;
+  ctx.fillStyle = "#E74C3C";
   ctx.textBaseline = "middle";
 
   const displayName = String(username).slice(0, 20);
   ctx.fillText(displayName, userCfg.x, userCfg.y);
 
-  // --- 3. Stats (rank, heures, etc.) ---
+  // --- 3. Stats (rouge) ---
   ctx.font = `${stats.fontSize}px ${stats.fontFamily}`;
-  ctx.fillStyle = stats.color;
+  ctx.fillStyle = "#E74C3C";
 
   const lines = [
     achievedRank ? `Rank: ${achievedRank.hours}h` : "Rank: —",
