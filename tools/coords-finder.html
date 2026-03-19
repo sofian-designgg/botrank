@@ -48,6 +48,7 @@
 <body>
   <h1>🔍 Find coordinates for rank card</h1>
   <p>Importe ton template, clique sur les zones pour récupérer les coordonnées (x, y).</p>
+  <p style="font-size:12px; color:#888;">Si l'aperçu ne s'affiche pas : ouvre cette page via un serveur local (dans le dossier du projet : <code>npx serve .</code>)</p>
 
   <div class="drop" id="drop">
     <input type="file" id="file" accept="image/*">
@@ -104,10 +105,13 @@
 
   <div id="previewResult" style="margin-top:24px; display:none; padding-top:16px; border-top:1px solid #333;">
     <h2 style="font-size:1rem; margin-bottom:12px;">Aperçu généré</h2>
-    <canvas id="resultCanvas" style="max-width:100%; border:1px solid #333; border-radius:4px;"></canvas>
+    <div style="overflow-x:auto; max-height:500px;">
+      <canvas id="resultCanvas" style="max-width:100%; height:auto; border:2px solid #E74C3C; border-radius:4px; display:block;"></canvas>
+    </div>
     <p style="margin-top:8px; color:#aaa; font-size:13px;">
       <a href="#" id="downloadLink" download="rank-preview.png" style="color:#E74C3C;">Télécharger l'image</a>
     </p>
+    <p id="previewError" style="color:#e74c3c; margin-top:8px; display:none;"></p>
   </div>
 
   <script>
@@ -213,20 +217,30 @@
     }
 
     async function generatePreview() {
-      if (!preview.src || preview.src.startsWith('data:')) {
+      const errEl = document.getElementById('previewError');
+      errEl.style.display = 'none';
+      errEl.textContent = '';
+      try {
+      if (!preview.src || preview.src === '' || preview.src === window.location.href) {
         alert('Charge d\'abord ton template (glisse ou sélectionne une image).');
         return;
       }
-      const w = preview.naturalWidth, h = preview.naturalHeight;
-      const ax = +document.getElementById('ax').value || 180;
-      const ay = +document.getElementById('ay').value || 384;
-      const ar = +document.getElementById('ar').value || 110;
-      const ux = +document.getElementById('ux').value || 430;
-      const uy = +document.getElementById('uy').value || 300;
-      const sx = +document.getElementById('sx').value || 1000;
-      const sy = +document.getElementById('sy').value || 220;
-      const bx = +document.getElementById('bx').value || 420;
-      const by = +document.getElementById('by').value || 480;
+      const w = preview.naturalWidth || 1376;
+      const h = preview.naturalHeight || 768;
+      if (w === 0 || h === 0) {
+        alert('L\'image template n\'est pas encore chargée. Attends un instant et réessaie.');
+        return;
+      }
+
+      const ax = +document.getElementById('ax').value || 257;
+      const ay = +document.getElementById('ay').value || 391;
+      const ar = +document.getElementById('ar').value || 167;
+      const ux = +document.getElementById('ux').value || 595;
+      const uy = +document.getElementById('uy').value || 380;
+      const sx = +document.getElementById('sx').value || 1050;
+      const sy = +document.getElementById('sy').value || 300;
+      const bx = +document.getElementById('bx').value || 595;
+      const by = +document.getElementById('by').value || 550;
       const bw = +document.getElementById('bw').value || 650;
       const bh = +document.getElementById('bh').value || 32;
       const pseudo = document.getElementById('testPseudo').value || 'TestUser';
@@ -238,11 +252,11 @@
       const ctx = canvas.getContext('2d');
 
       const templateImg = new Image();
-      templateImg.crossOrigin = 'anonymous';
-      templateImg.src = preview.src;
+      if (!preview.src.startsWith('blob:')) templateImg.crossOrigin = 'anonymous';
       await new Promise((res, rej) => {
-        templateImg.onload = res;
+        templateImg.onload = () => res();
         templateImg.onerror = () => rej(new Error('Template non chargé'));
+        templateImg.src = preview.src;
       });
       ctx.drawImage(templateImg, 0, 0, w, h);
 
@@ -302,12 +316,22 @@
         ctx.fill();
       }
 
-      document.getElementById('previewResult').style.display = 'block';
+      const resultDiv = document.getElementById('previewResult');
+      resultDiv.style.display = 'block';
+      resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
       const link = document.getElementById('downloadLink');
       canvas.toBlob(blob => {
+        if (link.href && link.href.startsWith('blob:')) URL.revokeObjectURL(link.href);
         link.href = URL.createObjectURL(blob);
         link.download = 'rank-preview.png';
       }, 'image/png');
+      } catch (err) {
+      document.getElementById('previewError').textContent = 'Erreur : ' + err.message;
+      document.getElementById('previewError').style.display = 'block';
+      document.getElementById('previewResult').style.display = 'block';
+      document.getElementById('previewResult').scrollIntoView({ behavior: 'smooth' });
+    }
     }
   </script>
 </body>
